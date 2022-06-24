@@ -1,0 +1,84 @@
+---
+title: "AI discourse mapping 2022"
+author: "Daniel S. Hain"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_notebook:
+    df_print: paged
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    number_sections: yes
+    code_folding: hide
+  html_document:
+    toc: yes
+    toc_depth: '3'
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+### Generic preamble
+rm(list=ls())
+Sys.setenv(LANG = "en")
+options(scipen = 5)
+set.seed(1337)
+
+### Load packages  
+# general
+library(tidyverse)
+library(magrittr)
+
+# xtra libraries
+library(widyr)
+library(tidygraph)
+library(ggraph)
+```
+
+# Load data
+
+```{r}
+data_sentiments <- read.csv('../../data/reddit/ai_subred_subs_sentiment_cluster.csv')
+```
+
+```{r}
+data_sentiments %>% glimpse()
+```
+
+```{r}
+data_sentiments_long <- data_sentiments %>% 
+  select(id, excitement, optimism, curiosity, realization, confusion, disappointment, disapproval, fear) %>%
+  pivot_longer(!id, names_to = 'sentiment') 
+```
+
+```{r}
+data_sentiments_long %>%
+  count(sentiment, wt = value, sort = TRUE)
+```
+
+
+```{r}
+g_sentiments <- data_sentiments_long %>%
+  pairwise_similarity(sentiment, id, value) %>%
+  rename(from = item1, 
+         to = item2,
+         weight = similarity) %>%
+  as_tbl_graph(directed = FALSE) 
+```
+
+```{r}
+g_sentiments %E>%
+  filter(percent_rank(weight) >= 0.5) %N>%
+  left_join(data_sentiments_long %>% count(sentiment, wt = value, sort = TRUE), by = c('name' = 'sentiment') ) %>%
+  ggraph(layout = "circle") + 
+  geom_edge_fan(strenght = 0.075, aes(width = weight), alpha = 0.5, col = 'cyan2')  + 
+  geom_node_point(aes(color = factor(name), size = n))  + 
+  geom_node_text(aes(label = name, size = n), repel = TRUE) +
+  theme_graph(base_family = "Arial") 
+```
+
+
+
+
+
+
+
